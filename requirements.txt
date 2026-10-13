@@ -1,0 +1,8 @@
+numpy>=2.0
+pandas>=2.2
+scipy>=1.13
+pyyaml>=6.0
+matplotlib>=3.9
+scikit-learn>=1.5
+umap-learn>=0.5.6
+pydeseq2==0.5.4   # only needed for workflow/pydeseq2_crosscheck.py

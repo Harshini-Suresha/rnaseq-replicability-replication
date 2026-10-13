@@ -1,0 +1,21 @@
+# Replication parameters, read by workflow/run_sweep.py and workflow/pydeseq2_crosscheck.py
+dataset: BSLA                  # TCGA-BRCA Basal vs LumA, as labelled in the authors' BootstrapSeq repo
+counts: data/BSLA.csv
+meta: data/BSLA.meta.csv
+condition_col: Condition
+group_a: Basal
+group_b: LumA
+covariates: [TumorPurity, days_to_birth]   # tumour purity and age, as the paper uses for BRCA subtype comparisons
+cohort_sizes: [3, 4, 5, 6, 7, 8, 9, 10, 12, 15]   # N per group (paper: ten sizes between 3 and 15; exact list assumed)
+trials: 100                    # random cohorts per N (paper: 100)
+seed: 20261012
+min_total_count: 10            # gene kept if summed count across the cohort >= this
+# Primary setting (paper's main analysis): formal threshold |log2FC| > 1, BH FDR < 5 %
+primary_lfc: 1.0
+primary_fdr: 0.05
+# Sensitivity grid shown in the dashboard
+lfc_grid: [0.0, 0.5, 1.0]
+fdr_grid: [0.01, 0.05]
+# Authors' full-data DESeq2 result (lfcThreshold = 1, with covariates), used as an alternative reference
+authors_reference: data/upstream_BSLA.deseq2.lfc1.csv
+authors_reference_fdr: 0.05

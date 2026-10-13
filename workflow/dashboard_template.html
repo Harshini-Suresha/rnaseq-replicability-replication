@@ -1,0 +1,765 @@
+<!doctype html>
+<html lang="en" data-theme="light">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>RNA-seq Replicability</title>
+<meta name="description" content="Interactive reproduction of how cohort size limits the replicability of RNA-seq differential expression results (Degen &amp; Medo 2025), on TCGA breast cancer Basal vs LumA.">
+<style>
+:root{
+  color-scheme:light;
+  --surface-1:#fcfcfb; --surface-2:#f4f3f0; --text-primary:#0b0b0b; --text-secondary:#52514e; --text-muted:#6b6a66;
+  --grid:#e8e7e3; --axis:#cfcec9; --s1:#2a78d6; --s2:#eb6834; --s3:#1baf7a; --good:#006300;
+}
+@media (prefers-color-scheme:dark){
+  :root:where(:not([data-theme="light"])){
+    color-scheme:dark;
+    --surface-1:#1a1a19; --surface-2:#232321; --text-primary:#f0efec; --text-secondary:#c3c2b7; --text-muted:#9b9a93;
+    --grid:#2c2c2a; --axis:#3d3d3a; --s1:#3987e5; --s2:#d95926; --s3:#199e70; --good:#5ec45e;
+  }
+}
+:root[data-theme="dark"]{
+  color-scheme:dark;
+  --surface-1:#1a1a19; --surface-2:#232321; --text-primary:#f0efec; --text-secondary:#c3c2b7; --text-muted:#9b9a93;
+  --grid:#2c2c2a; --axis:#3d3d3a; --s1:#3987e5; --s2:#d95926; --s3:#199e70; --good:#5ec45e;
+}
+*{box-sizing:border-box}
+html{-webkit-text-size-adjust:100%}
+body{margin:0;background:var(--surface-1);color:var(--text-primary);font:15px/1.55 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
+main{max-width:1040px;margin:0 auto;padding:28px 16px 64px}
+h1{font-size:28px;line-height:1.2;margin:0 0 8px;letter-spacing:-.01em}
+h2{font-size:18px;margin:0 0 4px}
+p{margin:0 0 10px}
+a{color:inherit;text-decoration-thickness:1px;text-underline-offset:3px}
+.lede{color:var(--text-secondary);max-width:70ch;font-size:16px}
+.topbar{display:flex;justify-content:space-between;align-items:flex-start;gap:12px}
+button,select{font:inherit;color:var(--text-primary);background:var(--surface-1);border:1px solid var(--axis);border-radius:8px;padding:6px 10px;min-height:34px}
+button{cursor:pointer}
+button:hover,select:hover{background:var(--surface-2)}
+:focus-visible{outline:2px solid var(--s1);outline-offset:2px}
+.hero{display:flex;gap:20px;align-items:baseline;flex-wrap:wrap;margin:22px 0 6px}
+.hero .num{font-size:64px;line-height:1;font-weight:650;letter-spacing:-.02em}
+.hero .cap{color:var(--text-secondary);max-width:58ch}
+.filters{display:flex;gap:14px 18px;flex-wrap:wrap;align-items:flex-end;margin:22px 0 14px;padding:12px 0;border-top:1px solid var(--grid);border-bottom:1px solid var(--grid)}
+.filters label,.fgroup .lab{display:flex;flex-direction:column;gap:3px;font-size:12px;color:var(--text-muted)}
+.fgroup{display:flex;flex-direction:column;gap:3px}
+.seg{display:inline-flex;align-self:flex-start;width:fit-content;border:1px solid var(--axis);border-radius:8px;overflow:hidden}
+.seg button{border:0;border-radius:0;min-height:34px}
+.seg button[aria-pressed="true"]{background:var(--surface-2);font-weight:600;box-shadow:inset 0 -2px 0 var(--text-primary)}
+.seg button[disabled]{opacity:.45;cursor:not-allowed}
+.card{margin:0 0 22px}
+.card .sub{color:var(--text-secondary);font-size:13.5px;margin-bottom:8px;max-width:80ch}
+.legend{display:flex;flex-wrap:wrap;gap:6px 14px;margin:6px 0 4px}
+.legend button{display:inline-flex;align-items:center;gap:7px;border:0;background:none;padding:3px 4px;min-height:28px;font-size:13px}
+.legend button[aria-pressed="false"]{opacity:.4}
+.legend svg{width:26px;height:12px;flex:none}
+.chart{position:relative;width:100%}
+.chart svg{display:block;width:100%;height:auto;overflow:visible}
+.tip{position:absolute;pointer-events:none;background:var(--surface-1);border:1px solid var(--axis);border-radius:8px;padding:8px 10px;font-size:12.5px;line-height:1.4;box-shadow:0 4px 14px rgba(0,0,0,.14);min-width:150px;max-width:260px;z-index:5;display:none}
+.tip .t{color:var(--text-muted);margin-bottom:4px}
+.tip .r{display:flex;align-items:center;gap:7px;margin-top:2px}
+.tip .r b{font-weight:650;font-size:14px}
+.tip .r span.l{color:var(--text-secondary)}
+.tip svg{width:14px;height:8px;flex:none}
+text{fill:var(--text-secondary);font-size:11.5px;font-family:inherit}
+.axis-title{fill:var(--text-muted);font-size:11.5px}
+details{margin:6px 0 0}
+summary{cursor:pointer;color:var(--text-secondary);font-size:13px}
+table{border-collapse:collapse;width:100%;font-size:12.5px;margin-top:8px;font-variant-numeric:tabular-nums}
+th,td{text-align:left;padding:5px 8px;border-bottom:1px solid var(--grid)}
+th{color:var(--text-muted);font-weight:500}
+.grid2{display:grid;grid-template-columns:repeat(auto-fit,minmax(250px,1fr));gap:12px;margin:10px 0}
+.tile{background:var(--surface-2);border-radius:10px;padding:12px 14px}
+.tile .v{font-size:26px;font-weight:650;letter-spacing:-.01em;line-height:1.15}
+.tile .k{font-size:12.5px;color:var(--text-secondary)}
+.note{font-size:13px;color:var(--text-secondary);margin:6px 0 0;max-width:80ch}
+.sliderrow{display:flex;gap:12px;align-items:center;flex-wrap:wrap;margin:6px 0}
+input[type=range]{width:min(360px,100%);accent-color:var(--s1)}
+section.prose{margin-top:34px;max-width:78ch}
+section.prose ul{padding-left:20px;margin:6px 0 12px}
+section.prose li{margin-bottom:5px}
+code{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:.9em;background:var(--surface-2);padding:1px 5px;border-radius:4px}
+pre{background:var(--surface-2);padding:12px 14px;border-radius:10px;overflow:auto;font-size:12.5px}
+footer{margin-top:40px;color:var(--text-muted);font-size:12.5px;border-top:1px solid var(--grid);padding-top:14px}
+@media (max-width:600px){ .hero .num{font-size:52px} h1{font-size:23px} }
+</style>
+</head>
+<body>
+<main>
+  <div class="topbar">
+    <div>
+      <h1>How many RNA-seq replicates does a result need?</h1>
+      <p class="lede">A reproduction of the subsampling experiment in Degen &amp; Medo (2025, <a href="https://journals.plos.org/ploscompbiol/article?id=10.1371/journal.pcbi.1011630" target="_blank" rel="noopener">PLOS Computational Biology</a>) on one of its data sets: TCGA breast tumours, Basal vs Luminal A, 126 vs 126 samples. Random small cohorts are drawn from the full data, analysed, and compared with each other and with the full-data result.</p>
+    </div>
+    <button id="theme" aria-label="Toggle colour theme">Theme</button>
+    </div>
+  <p style="margin:10px 0 0"><a href="figures.html">Figure gallery — browse all 100 static figures &rarr;</a></p>
+
+  <div class="hero" aria-live="polite">
+    <div class="num" id="heroNum">–</div>
+    <div class="cap" id="heroCap"></div>
+  </div>
+
+  <section class="card" aria-labelledby="cmpt">
+    <h2 id="cmpt">Reproduction vs the paper</h2>
+    <p class="sub">Median values for this data set at the primary setting (|log2FC| &gt; 1, 5 % FDR). "Published" is the authors' table; "Reproduction" is PyDESeq2 on 10 random cohorts per size, with precision and recall measured against the authors' full-data DESeq2 result.</p>
+    <div id="cmp"></div>
+  </section>
+
+  <div class="filters" role="group" aria-label="Filters">
+    <label>Measure
+      <select id="fMetric">
+        <option value="rep">Replicability (Jaccard overlap)</option>
+        <option value="precision">Precision</option>
+        <option value="recall">Recall</option>
+        <option value="spearman">Rank agreement with full data</option>
+        <option value="n_deg">Genes called</option>
+      </select>
+    </label>
+    <label>Fold-change threshold
+      <select id="fLfc"></select>
+    </label>
+    <label>FDR
+      <select id="fFdr"></select>
+    </label>
+    <div class="fgroup"><span class="lab">Reference for precision and recall</span>
+      <div class="seg" id="fRef">
+        <button data-v="authors" aria-pressed="true" title="The authors' own full-data DESeq2 result (their repository)">Authors' DESeq2</button>
+        <button data-v="own" aria-pressed="false" title="This repository's engine run on all 252 samples">This repo, all samples</button>
+      </div>
+    </div>
+  </div>
+
+  <section class="card" aria-labelledby="c1t">
+    <h2 id="c1t"></h2>
+    <p class="sub" id="c1s"></p>
+    <div class="legend" id="legend1"></div>
+    <div class="chart" id="chart1"></div>
+    <p class="note" id="c1n"></p>
+    <details><summary>Table view</summary><div id="tbl1"></div></details>
+  </section>
+
+  <section class="card" aria-labelledby="c2t">
+    <h2 id="c2t">Which genes get found?</h2>
+    <p class="sub">Each dot is one gene called differentially expressed in the full data (|log2FC| &gt; 1, 5 % FDR; <span id="c2ref"></span> genes). Height is the share of 100 random cohorts of the chosen size that also called it, using the fast engine. Small cohorts mostly find only the genes with the very largest fold changes.</p>
+    <div class="sliderrow">
+      <label for="nSlide" style="font-size:13px;color:var(--text-secondary)">Samples per group</label>
+      <input type="range" id="nSlide" min="0" max="9" step="1" value="5">
+      <strong id="nVal" style="font-size:18px"></strong>
+    </div>
+    <div class="chart" id="chart2"></div>
+    <p class="note" id="c2n"></p>
+  </section>
+
+  <section class="card" aria-labelledby="c3t">
+    <h2 id="c3t">The same measure across the paper's 18 data sets</h2>
+    <p class="sub">Median replicability reported in the authors' results table (their repository), sorted. The marked row is the data set reproduced here; dots show this reproduction's estimates.</p>
+    <div class="fgroup"><span class="lab">Cohort size</span>
+      <div class="seg" id="fPubN"><button data-v="5" aria-pressed="false">N = 5</button><button data-v="10" aria-pressed="true">N = 10</button></div>
+    </div>
+    <div class="chart" id="chart3"></div>
+    <details><summary>Table view</summary><div id="tbl3"></div></details>
+  </section>
+
+  <section class="card" aria-labelledby="d1t">
+    <h2 id="d1t">How much do results vary from cohort to cohort?</h2>
+    <p class="sub">The same 100 random cohorts per size as above, one dot each. Boxes show the median, quartiles and whiskers (1.5 x IQR); violins show the shape of the spread with the median (white dot) and quartiles (black bar). Replicability uses every cohort pair (4,950 per size), with 100 random pairs drawn as dots. Fast engine (blue), primary setting. Orange squares are the 10 PyDESeq2 cohorts per size that were run (sizes 3, 5, 7, 10, 15 only).</p>
+    <div class="filters" style="margin:6px 0 8px;border:0;padding:0">
+      <label>Measure
+        <select id="dMetric"><option value="rep">Replicability (Jaccard overlap)</option><option value="precision">Precision</option><option value="recall">Recall</option><option value="n_deg">Genes called</option></select>
+      </label>
+      <div class="fgroup"><span class="lab">Plot</span>
+        <div class="seg" id="dStyle"><button data-v="box" aria-pressed="true">Box and dots</button><button data-v="violin" aria-pressed="false">Violin</button></div>
+      </div>
+      <label style="display:inline-flex;gap:6px;align-items:center"><input type="checkbox" id="dOver" checked> Show PyDESeq2 cohorts (orange squares)</label>
+      <label id="dMin10Wrap" style="display:inline-flex;gap:6px;align-items:center"><input type="checkbox" id="dMin10"> Only pairs where both cohorts call 10+ genes</label>
+    </div>
+    <div class="chart" id="chartD"></div>
+    <p class="note" id="dNote"></p>
+    <details><summary>Table view</summary><div id="tblD"></div></details>
+  </section>
+
+  <section class="card" aria-labelledby="e1t">
+    <h2 id="e1t">The tumours themselves</h2>
+    <p class="sub">All 252 samples projected from their 2,000 most variable genes (PCA to 50 components, then t-SNE and UMAP on those components). Basal and Luminal A tumours separate cleanly. PCA axes are in standardised log2 CPM units (z-scored expression summed over genes). t-SNE and UMAP coordinates are arbitrary units: they come from an optimisation that preserves neighbourhoods, not distances, so they have no physical scale and only relative position within a panel means anything. Gaps and cluster sizes should not be read quantitatively. Optionally overlay one of the random cohorts used above to see how a small study samples the population.</p>
+    <div class="filters" style="margin:6px 0 8px;border:0;padding:0">
+      <div class="fgroup"><span class="lab">Projection</span>
+        <div class="seg" id="eProj"><button data-v="pca" aria-pressed="false">PCA</button><button data-v="tsne" aria-pressed="false">t-SNE</button><button data-v="umap" aria-pressed="true">UMAP</button></div></div>
+      <div class="fgroup"><span class="lab">Colour by</span>
+        <div class="seg" id="eColor"><button data-v="cond" aria-pressed="true">Subtype</button><button data-v="purity" aria-pressed="false">Tumour purity</button><button data-v="age" aria-pressed="false">Age</button></div></div>
+      <label>Overlay a random cohort
+        <select id="eN"><option value="0">None</option></select></label>
+      <label>Cohort draw <span id="eTrialVal" style="color:var(--text-primary)"></span>
+        <input type="range" id="eTrial" min="0" max="19" step="1" value="0" style="width:160px"></label>
+    </div>
+    <div class="legend" id="legendE"></div>
+    <div class="chart" id="chartE"></div>
+    <p class="note" id="eNote"></p>
+  </section>
+
+  <section class="card" aria-labelledby="g1t">
+    <h2 id="g1t">Single genes: what a large effect looks like</h2>
+    <p class="sub">The 40 reference genes with the largest standardised effect (full-data log2FC divided by its standard error), expression as log2 counts per million, one dot per tumour (126 per group). Names are HGNC gene symbols (Ensembl ID where no symbol exists); zero-count samples sit at the bottom of a panel.</p>
+    <div class="filters" style="margin:6px 0 8px;border:0;padding:0">
+      <label>Gene <select id="gSel"></select></label>
+      <div class="fgroup"><span class="lab">Plot</span>
+        <div class="seg" id="gStyle"><button data-v="box" aria-pressed="true">Box and dots</button><button data-v="violin" aria-pressed="false">Violin</button></div></div>
+    </div>
+    <div class="chart" id="chartG"></div>
+    <details><summary>Table view</summary><div id="tblG"></div></details>
+  </section>
+
+  <section class="prose" aria-labelledby="qt">
+    <h2 id="qt">Question</h2>
+    <p>When a differential-expression study has few replicates, how much of what it reports would another study of the same size find again, and how much of the full truth does it recover? Degen &amp; Medo (2025) answer this by repeatedly drawing small random cohorts from large RNA-seq data sets. This site reproduces that design on one of their data sets.</p>
+  </section>
+
+  <section class="prose" aria-labelledby="mt">
+    <h2 id="mt">Methodology: what was actually done</h2>
+    <ul>
+      <li><strong>Data.</strong> TCGA breast cancer, Basal vs Luminal A, 126 + 126 tumours, 18,188 genes (the authors' <code>BSLA</code> data set, taken from their repository, not re-downloaded).</li>
+      <li><strong>Cohorts.</strong> For each N in {3, 4, 5, 6, 7, 8, 9, 10, 12, 15} per group, 100 random cohorts drawn without replacement. Cohorts at the same N are independent draws and can share samples, as in the paper. Every draw is seeded from <code>(seed, N, trial)</code> so reruns are identical.</li>
+      <li><strong>Reference ("truth").</strong> The full 252-sample analysis. Two versions: the authors' own full-data DESeq2 result (2,039 genes), and the same pipeline as ours on all samples (1,852 genes).</li>
+      <li><strong>Calling genes.</strong> Covariates tumour purity and age, formal test of |log2FC| &gt; 1, Benjamini-Hochberg FDR below 5 % (primary setting; sensitivity over no filter / 0.5 / 1.0 and FDR 1 % / 5 % in the filters above).</li>
+      <li><strong>Metrics.</strong> Precision and recall against the reference. Replicability is the Jaccard index between the gene lists of two cohorts, over all pairs at a given N, summarised by the median (0 if either list is empty). Rank agreement is Spearman correlation of log2FC with full data.</li>
+      <li><strong>Two engines.</strong> PyDESeq2 (Wald test, formal threshold, covariates) — closest match to the paper, ~1 min/cohort, so 10 cohorts per size (50 cohorts, 45 pairs per size). A numpy engine in the style of limma-trend ran all 1,000 cohorts in ~1 min; used for distributions, gene-level view and threshold sensitivity. It is conservative below ~8 per group.</li>
+    </ul>
+  </section>
+
+  <section class="prose" aria-labelledby="ft">
+    <h2 id="ft">Findings</h2>
+    <ul>
+      <li><strong>1. PyDESeq2 lands on the paper's numbers.</strong> At N = 5: precision, recall, replicability 0.84 / 0.15 / 0.20 vs published 0.84 / 0.14 / 0.19. At N = 10: 0.91 / 0.21 / 0.33 vs 0.90 / 0.25 / 0.30. With 10 cohorts per size these medians are noisy — agreement is good, not exact.</li>
+      <li><strong>2. Replicability stays low.</strong> PyDESeq2 median overlap: 0.14 at N = 3, 0.20 at 5, 0.29 at 7, 0.33 at 10, 0.41 at 15. Two 15-vs-15 studies agree on fewer than half the genes either reports.</li>
+      <li><strong>3. Small studies are precise but incomplete.</strong> Precision 0.71 at N = 3, ≥0.84 from N = 5. Recall 0.14 at N = 3, only 0.35 at N = 15 — mostly real genes, but most missed.</li>
+      <li><strong>4. Which genes survive is not random.</strong> At N = 10, the 128 reference genes (of 1,852) called by ≥half the cohorts have median |log2FC| 4.78 vs 2.02 for the whole list. Small cohorts find very large effects.</li>
+      <li><strong>5. Not a threshold artefact.</strong> Across six settings (no filter / 0.5 / 1.0; FDR 1 % / 5 %), fast-engine replicability at N = 10 stays 0.28–0.35.</li>
+      <li><strong>6. Engine caveat.</strong> Fast engine calls no genes in 64 %, 47 %, 21 % of cohorts at N = 3, 4, 5, pinning its replicability near 0 there. At N = 7, 10, 15 it is within 0.04 of PyDESeq2. Its small-N curve should not be read as biology.</li>
+    </ul>
+  </section>
+
+  <section class="prose" aria-labelledby="dt">
+    <h2 id="dt">Detailed results tables</h2>
+    <p>Primary setting: |log2FC| &gt; 1, 5 % FDR. Precision/recall vs authors' full-data DESeq2 unless noted.</p>
+    <details open><summary>Table 1 — Fast engine, 100 cohorts per size (medians)</summary>
+    <table><thead><tr><th>N</th><th>Median genes</th><th>No calls</th><th>Precision</th><th>Recall</th><th>Replicability</th><th>Rank agreement</th></tr></thead><tbody>
+    <tr><td>3</td><td>0</td><td>64 %</td><td>0.86</td><td>0.00</td><td>0.00</td><td>0.61</td></tr>
+    <tr><td>4</td><td>1</td><td>47 %</td><td>1.00</td><td>0.00</td><td>0.00</td><td>0.72</td></tr>
+    <tr><td>5</td><td>22</td><td>21 %</td><td>0.96</td><td>0.01</td><td>0.02</td><td>0.75</td></tr>
+    <tr><td>6</td><td>54</td><td>4 %</td><td>0.96</td><td>0.03</td><td>0.13</td><td>0.80</td></tr>
+    <tr><td>7</td><td>96</td><td>1 %</td><td>0.96</td><td>0.05</td><td>0.21</td><td>0.82</td></tr>
+    <tr><td>8</td><td>128</td><td>0 %</td><td>0.95</td><td>0.06</td><td>0.24</td><td>0.84</td></tr>
+    <tr><td>9</td><td>175</td><td>0 %</td><td>0.95</td><td>0.08</td><td>0.28</td><td>0.85</td></tr>
+    <tr><td>10</td><td>200</td><td>0 %</td><td>0.95</td><td>0.09</td><td>0.32</td><td>0.86</td></tr>
+    <tr><td>12</td><td>322</td><td>0 %</td><td>0.95</td><td>0.15</td><td>0.37</td><td>0.89</td></tr>
+    <tr><td>15</td><td>444</td><td>0 %</td><td>0.95</td><td>0.21</td><td>0.44</td><td>0.91</td></tr>
+    </tbody></table></details>
+    <details><summary>Table 2 — PyDESeq2 anchor vs fast engine, same cohorts</summary>
+    <table><thead><tr><th>N</th><th>Cohorts</th><th>PyDESeq2 genes</th><th>PyDESeq2 prec.</th><th>PyDESeq2 rec.</th><th>PyDESeq2 repl.</th><th>Fast repl.</th></tr></thead><tbody>
+    <tr><td>3</td><td>10</td><td>423</td><td>0.71</td><td>0.14</td><td>0.14</td><td>0.00</td></tr>
+    <tr><td>5</td><td>10</td><td>365</td><td>0.84</td><td>0.15</td><td>0.20</td><td>0.02</td></tr>
+    <tr><td>7</td><td>10</td><td>519</td><td>0.86</td><td>0.22</td><td>0.29</td><td>0.25</td></tr>
+    <tr><td>10</td><td>10</td><td>465</td><td>0.91</td><td>0.21</td><td>0.33</td><td>0.33</td></tr>
+    <tr><td>15</td><td>10</td><td>778</td><td>0.91</td><td>0.35</td><td>0.41</td><td>0.43</td></tr>
+    </tbody></table></details>
+    <details><summary>Table 3 — Authors' published values (row BSLA)</summary>
+    <table><thead><tr><th>N</th><th>Precision</th><th>Recall</th><th>Replicability</th><th>Rank agreement (mean)</th></tr></thead><tbody>
+    <tr><td>5</td><td>0.84</td><td>0.14</td><td>0.19</td><td>0.59</td></tr>
+    <tr><td>10</td><td>0.90</td><td>0.25</td><td>0.30</td><td>0.73</td></tr>
+    </tbody></table></details>
+    <details><summary>Table 4 — Threshold sensitivity at N = 10 (fast engine, own reference)</summary>
+    <table><thead><tr><th>FC threshold</th><th>FDR</th><th>Ref genes</th><th>Median called</th><th>Precision</th><th>Recall</th><th>Replicability</th></tr></thead><tbody>
+    <tr><td>none</td><td>1 %</td><td>12146</td><td>1100</td><td>1.00</td><td>0.09</td><td>0.30</td></tr>
+    <tr><td>none</td><td>5 %</td><td>13498</td><td>2648</td><td>0.99</td><td>0.19</td><td>0.35</td></tr>
+    <tr><td>|log2FC| &gt; 0.5</td><td>1 %</td><td>4332</td><td>276</td><td>1.00</td><td>0.06</td><td>0.29</td></tr>
+    <tr><td>|log2FC| &gt; 0.5</td><td>5 %</td><td>4928</td><td>600</td><td>0.99</td><td>0.12</td><td>0.32</td></tr>
+    <tr><td>|log2FC| &gt; 1.0</td><td>1 %</td><td>1630</td><td>102</td><td>1.00</td><td>0.06</td><td>0.28</td></tr>
+    <tr><td>|log2FC| &gt; 1.0</td><td>5 %</td><td>1852</td><td>200</td><td>1.00</td><td>0.11</td><td>0.32</td></tr>
+    </tbody></table></details>
+  </section>
+
+  <section class="prose" aria-labelledby="vt">
+    <h2 id="vt">How well do the engines agree with the authors?</h2>
+    <p>R is not available in the environment this was built in, so the paper's DESeq2 and edgeR could not be run. Two stand-ins were used, and both were checked against results the authors published in their repository.</p>
+    <div class="grid2" id="valTiles"></div>
+    <ul>
+      <li><strong>Fast engine</strong> (blue): a numpy re-implementation in the style of limma-trend with a formal fold-change test and the same covariates. It runs 1,000 cohorts in about a minute, but it is conservative below about 8 samples per group, so its small-cohort numbers understate what DESeq2 or edgeR would find.</li>
+      <li><strong>PyDESeq2 anchor</strong> (orange): the Python port of DESeq2 with covariates and a formal |log2FC| &gt; 1 test, the closest available match to the paper's main pipeline. It takes minutes per cohort here, so only 10 cohorts per size (45 cohort pairs) were run and the ranges are wide.</li>
+    </ul>
+  </section>
+
+  <section class="prose" aria-labelledby="lt">
+    <h2 id="lt">What this does and does not show</h2>
+    <ul>
+      <li>One data set of 18. Gene-set enrichment, the paper's second analysis, is not reproduced. The GEO data sets are outside this environment's network allowlist.</li>
+      <li>The reference ("truth") is the full-data analysis, and the cohorts are subsets of those same samples, as in the paper. Precision at large N is therefore somewhat flattering.</li>
+      <li>Replicability is the Jaccard index between the DEG lists of two cohorts, taken over all pairs of random cohorts at a given N and summarised by the median. Cohorts at the same N can share samples. The list of cohort sizes (3 to 15, ten values) is an assumption.</li>
+      <li>"Published" values come from the authors' results table in their repository (row <code>BSLA</code>), which stores N = 5 and N = 10 only. Column meanings were not cross-checked against the paper's Table 1.</li>
+      <li>Anchor and published points exist for the primary setting only (|log2FC| &gt; 1, FDR 5 %).</li>
+    </ul>
+  </section>
+
+  <section class="prose" aria-labelledby="pr">
+    <h2 id="pr">Practical reading</h2>
+    <p>For a study of this kind (a heterogeneous tumour comparison), 5 to 10 replicates per group yields gene lists that are mostly correct but cover only about a fifth to a quarter of the full signal, and a repeat study would find only about a fifth to a third of the same genes. The paper's bootstrap tool (<a href="https://github.com/pdegen/BootstrapSeq" target="_blank" rel="noopener">pdegen/BootstrapSeq</a>) is the authors' suggested way to estimate this for your own small data set.</p>
+  </section>
+
+  <section class="prose" aria-labelledby="rt">
+    <h2 id="rt">Reproduce it</h2>
+<pre>pip install numpy pandas scipy pyyaml pydeseq2
+python workflow/run_sweep.py config/config.yaml           # ~1 min: 1,000 cohorts
+python workflow/pydeseq2_crosscheck.py config/config.yaml --sizes 3 5 7 10 15 --k 10   # hours; resumable
+python workflow/validate_engine.py config/config.yaml
+python workflow/build_dashboard.py config/config.yaml     # writes docs/index.html</pre>
+  </section>
+
+  <footer>
+    Data and reference results: <a href="https://github.com/pdegen/BootstrapSeq" target="_blank" rel="noopener">pdegen/BootstrapSeq</a> (MIT licence), derived from TCGA. Paper: Degen &amp; Medo, PLOS Comput Biol 2025. This is an independent reproduction, not affiliated with the authors.
+  </footer>
+</main>
+<div class="tip" id="tip" role="status"></div>
+
+<script>
+const D = /*__DATA__*/null;
+(function(){
+"use strict";
+const NS="http://www.w3.org/2000/svg";
+const $=(s,r)=> (r||document).querySelector(s);
+function el(tag,attrs,parent){const e=document.createElementNS(NS,tag);for(const k in (attrs||{}))e.setAttribute(k,attrs[k]);if(parent)parent.appendChild(e);return e;}
+function hh(tag,attrs,text){const e=document.createElement(tag);for(const k in (attrs||{}))e.setAttribute(k,attrs[k]);if(text!=null)e.textContent=text;return e;}
+const f2=x=>x==null?"–":(Math.abs(x)>=100?Math.round(x).toString():x.toFixed(2));
+const fi=x=>x==null?"–":Math.round(x).toLocaleString("en-GB");
+const fpct=x=>Math.round(x)+" %";
+const sizes=D.meta.sizes, PRIM=D.meta.primary;
+const S={metric:"rep",lfc:String(PRIM[0].toFixed(1)),fdr:String(PRIM[1]),ref:"authors",show:{fast:true,py:true,pub:true},pubN:"10",idx:5};
+const COL={fast:"var(--s1)",py:"var(--s2)",pub:"var(--s3)"};
+const KMAX=Math.max(0,...Object.values(D.anchor||{}).map(a=>a.k));
+const NAMES={fast:"Fast engine, 100 cohorts per size",py:"PyDESeq2, "+KMAX+" cohorts per size",pub:"Published (authors' table)"};
+const MET={
+ rep:{t:"Replicability",s:"Median Jaccard overlap between the lists of differentially expressed genes from two random cohorts of the same size.",dom:[0,1],y:"Jaccard overlap (0 to 1)"},
+ precision:{t:"Precision",s:"Share of genes called in a cohort that are also called in the full-data reference.",dom:[0,1],y:"Precision (fraction, 0 to 1)"},
+ recall:{t:"Recall",s:"Share of the full-data reference genes that a cohort also calls.",dom:[0,1],y:"Recall (fraction, 0 to 1)"},
+ spearman:{t:"Rank agreement with full data",s:"Spearman correlation between a cohort's log2 fold changes and the full-data log2 fold changes, over all genes.",dom:[0,1],y:"Spearman correlation (-1 to 1)"},
+ n_deg:{t:"Genes called",s:"Number of genes a cohort calls differentially expressed.",dom:[0,null],y:"Genes called (count)"}
+};
+const isPrim=()=>Math.abs(parseFloat(S.lfc)-PRIM[0])<1e-9&&Math.abs(parseFloat(S.fdr)-PRIM[1])<1e-9;
+const pk=(l,q)=>Number(l).toFixed(1)+"|"+Number(q);   // matches the Python-side keys, e.g. "1.0|0.05"
+const key=()=>pk(S.lfc,S.fdr);
+const pubRow=D.published.find(r=>r.code==="BSLA");
+const med=a=>{const b=a.filter(x=>x!=null).slice().sort((x,y)=>x-y);if(!b.length)return null;const m=b.length>>1;return b.length%2?b[m]:(b[m-1]+b[m])/2;};
+const qnt=(a,q)=>{const b=a.filter(x=>x!=null).slice().sort((x,y)=>x-y);if(!b.length)return null;const p=(b.length-1)*q,i=Math.floor(p),f=p-i;return b[i]+(b[Math.min(i+1,b.length-1)]-b[i])*f;};
+const refSuffix=()=>(S.ref==="authors"&&isPrim())?"_authors":"";
+
+function fastVals(n){
+ const e=(D.fast[key()]||{})[n]; if(!e) return null;
+ let a;
+ if(S.metric==="rep") a=[e.rep[1],e.rep[2],e.rep[3]];
+ else if(S.metric==="precision") a=(refSuffix()&&e.precision_authors)?e.precision_authors:e.precision;
+ else if(S.metric==="recall") a=(refSuffix()&&e.recall_authors)?e.recall_authors:e.recall;
+ else if(S.metric==="spearman") a=e.spearman; else a=e.n_deg;
+ if(a[1]==null) return null;
+ return {lo:a[0],mid:a[1],hi:a[2],extra:e};
+}
+function anchorVals(n,eng){
+ if(!isPrim()||S.metric==="spearman")return null;
+ const A=D.anchor[n]; if(!A||!A[eng])return null;
+ let arr;
+ if(S.metric==="rep") arr=A[eng].rep; else if(S.metric==="n_deg") arr=A[eng].n_deg;
+ else arr=A[eng][S.metric+(S.ref==="authors"?"_authors":"_own")];
+ const b=arr.filter(x=>x!=null); if(!b.length)return null;
+ return {mid:med(b),min:Math.min(...b),max:Math.max(...b),k:A.k,m:b.length};
+}
+function pubVal(n){
+ if(!isPrim()||!pubRow||S.metric==="n_deg")return null;
+ const m={rep:"rep",precision:"prec",recall:"rec",spearman:"sp"}[S.metric];
+ const v=pubRow[m+n]; return v==null?null:v;
+}
+
+/* ---------- tooltip ---------- */
+const tip=$("#tip");
+function showTip(host,x,y,title,rows){
+ tip.replaceChildren();
+ tip.appendChild(hh("div",{class:"t"},title));
+ rows.forEach(r=>{
+  const d=hh("div",{class:"r"});
+  const sv=el("svg",{viewBox:"0 0 14 8"});
+  if(r.shape==="sq") el("rect",{x:3,y:0,width:8,height:8,fill:r.color},sv);
+  else if(r.shape==="di") el("path",{d:"M7 0L11 4L7 8L3 4Z",fill:r.color},sv);
+  else {el("line",{x1:0,x2:14,y1:4,y2:4,stroke:r.color,"stroke-width":2},sv);}
+  d.appendChild(sv);
+  d.appendChild(hh("b",{},r.value)); d.appendChild(hh("span",{class:"l"},r.label));
+  tip.appendChild(d);
+ });
+ tip.style.display="block";
+ const hb=host.getBoundingClientRect(), pb=host.offsetParent?host.offsetParent.getBoundingClientRect():hb;
+ let L=x+14,T=y+12; const tw=tip.offsetWidth;
+ if(L+tw>hb.width) L=x-tw-14; if(L<0) L=4;
+ tip.style.left=(hb.left-pb.left+host.offsetLeft*0+L+window.scrollX*0)+"px";
+ tip.style.top=(T)+"px";
+}
+function placeTip(host,x,y,title,rows){
+ host.appendChild(tip); showTip(host,x,y,title,rows);
+ const tw=tip.offsetWidth; let L=x+14; if(L+tw>host.clientWidth) L=x-tw-14; if(L<0)L=4;
+ tip.style.left=L+"px"; tip.style.top=Math.max(0,y-10)+"px";
+}
+function hideTip(){tip.style.display="none";}
+
+/* ---------- chart 1 ---------- */
+function drawLegend(){
+ const lg=$("#legend1"); lg.replaceChildren();
+ [["fast","line","circle"],["py","line","sq"],["pub","none","di"]].forEach(([k,ln,sh])=>{
+  const b=hh("button",{type:"button","aria-pressed":String(S.show[k]),title:"Show or hide this series"});
+  const sv=el("svg",{viewBox:"0 0 26 12"});
+  if(ln!=="none") el("line",{x1:0,x2:26,y1:6,y2:6,stroke:COL[k],"stroke-width":2},sv);
+  if(sh==="circle") el("circle",{cx:13,cy:6,r:4,fill:COL[k]},sv);
+  if(sh==="sq") el("rect",{x:9,y:2,width:8,height:8,fill:COL[k]},sv);
+  if(sh==="di") el("path",{d:"M13 1L18 6L13 11L8 6Z",fill:COL[k]},sv);
+  b.appendChild(sv); b.appendChild(document.createTextNode(NAMES[k]));
+  b.addEventListener("click",()=>{S.show[k]=!S.show[k];render();});
+  lg.appendChild(b);
+ });
+}
+function niceMax(v){if(v<=0)return 1;const p=Math.pow(10,Math.floor(Math.log10(v)));const m=v/p;return (m<=1?1:m<=2?2:m<=5?5:10)*p;}
+let focusIdx=null;
+function renderChart1(){
+ const host=$("#chart1"); host.replaceChildren();
+ const W=Math.max(300,host.clientWidth||700), H=W<520?320:380;
+ const M={l:50,r:20,t:14,b:46}, iw=W-M.l-M.r, ih=H-M.t-M.b;
+ const svg=el("svg",{viewBox:`0 0 ${W} ${H}`,role:"img",tabindex:"0","aria-label":MET[S.metric].t+" by cohort size"},host);
+ const g=el("g",{transform:`translate(${M.l},${M.t})`},svg);
+ const F=sizes.map(n=>S.show.fast?fastVals(n):null);
+ const P=sizes.map(n=>S.show.py?anchorVals(n,"pydeseq2"):null);
+ const B=sizes.map(n=>S.show.pub?pubVal(n):null);
+ let ymax=MET[S.metric].dom[1];
+ if(ymax==null){const all=[];F.forEach(v=>v&&all.push(v.hi));P.forEach(v=>v&&all.push(v.max));ymax=niceMax(Math.max(1,...all));}
+ const x0=sizes[0]-0.6,x1=sizes[sizes.length-1]+0.6;
+ const X=n=>(n-x0)/(x1-x0)*iw, Y=v=>ih-(v/ymax)*ih;
+ const nt=5;
+ for(let i=0;i<=nt;i++){const v=ymax*i/nt,y=Y(v);
+  el("line",{x1:0,x2:iw,y1:y,y2:y,stroke:i?"var(--grid)":"var(--axis)","stroke-width":1},g);
+  const t=el("text",{x:-8,y:y+4,"text-anchor":"end"},g);t.textContent=ymax>=10?fi(v):(v.toFixed(v%1?1:0));}
+ sizes.forEach(n=>{const t=el("text",{x:X(n),y:ih+18,"text-anchor":"middle"},g);t.textContent=n;});
+ let t=el("text",{x:iw/2,y:ih+38,"text-anchor":"middle",class:"axis-title"},g);t.textContent="Samples per group (N)";
+ t=el("text",{transform:`translate(${-38},${ih/2}) rotate(-90)`,"text-anchor":"middle",class:"axis-title"},g);t.textContent=MET[S.metric].y;
+ // fast band + line
+ const fp=sizes.map((n,i)=>F[i]?{n,v:F[i]}:null).filter(Boolean);
+ if(fp.length){
+  const up=fp.map(p=>`${X(p.n)},${Y(p.v.hi)}`), dn=fp.slice().reverse().map(p=>`${X(p.n)},${Y(p.v.lo)}`);
+  el("path",{d:"M"+up.concat(dn).join("L")+"Z",fill:COL.fast,"fill-opacity":.12},g);
+  el("path",{d:"M"+fp.map(p=>`${X(p.n)},${Y(p.v.mid)}`).join("L"),fill:"none",stroke:COL.fast,"stroke-width":2,"stroke-linejoin":"round","stroke-linecap":"round"},g);
+ }
+ // anchor whiskers + line
+ const pp=sizes.map((n,i)=>P[i]?{n,v:P[i]}:null).filter(Boolean);
+ if(pp.length){
+  pp.forEach(p=>el("line",{x1:X(p.n),x2:X(p.n),y1:Y(p.v.min),y2:Y(p.v.max),stroke:COL.py,"stroke-width":2,"stroke-opacity":.55},g));
+  if(pp.length>1) el("path",{d:"M"+pp.map(p=>`${X(p.n)},${Y(p.v.mid)}`).join("L"),fill:"none",stroke:COL.py,"stroke-width":2,"stroke-linejoin":"round"},g);
+ }
+ // markers
+ fp.forEach(p=>el("circle",{cx:X(p.n),cy:Y(p.v.mid),r:4,fill:COL.fast,stroke:"var(--surface-1)","stroke-width":2},g));
+ pp.forEach(p=>el("rect",{x:X(p.n)-4.5,y:Y(p.v.mid)-4.5,width:9,height:9,fill:COL.py,stroke:"var(--surface-1)","stroke-width":2},g));
+ sizes.forEach((n,i)=>{ if(B[i]!=null){ const cx=X(n),cy=Y(B[i]);
+  el("path",{d:`M${cx} ${cy-6}L${cx+6} ${cy}L${cx} ${cy+6}L${cx-6} ${cy}Z`,fill:COL.pub,stroke:"var(--surface-1)","stroke-width":2},g);
+  const tt=el("text",{x:cx+10,y:cy+4},g);tt.textContent="paper "+f2(B[i]);} });
+ // direct end label for fast
+ if(fp.length){const l=fp[fp.length-1];const tt=el("text",{x:Math.min(iw-2,X(l.n)),y:Y(l.v.mid)-12,"text-anchor":"end"},g);tt.textContent="fast engine "+f2(l.v.mid);}
+ // hover layer
+ const cross=el("line",{y1:0,y2:ih,stroke:"var(--text-muted)","stroke-width":1,visibility:"hidden"},g);
+ const hit=el("rect",{x:0,y:0,width:iw,height:ih,fill:"transparent"},g);
+ function at(i,px,py){
+  const n=sizes[i];cross.setAttribute("x1",X(n));cross.setAttribute("x2",X(n));cross.setAttribute("visibility","visible");
+  const rows=[];
+  if(F[i]){const e=F[i];rows.push({color:COL.fast,value:f2(e.mid),label:S.metric==="rep"?"fast engine (IQR "+f2(e.lo)+"–"+f2(e.hi)+")":"fast engine (IQR "+f2(e.lo)+"–"+f2(e.hi)+")"});}
+  if(P[i]){const e=P[i];rows.push({color:COL.py,shape:"sq",value:f2(e.mid),label:"PyDESeq2 (range "+f2(e.min)+"–"+f2(e.max)+", "+e.k+" cohorts)"});}
+  if(B[i]!=null) rows.push({color:COL.pub,shape:"di",value:f2(B[i]),label:"published"});
+  if(!rows.length) rows.push({color:"var(--text-muted)",value:"–",label:"no series shown for this size"});
+  placeTip(host,M.l+X(n),(py==null?M.t+ih*0.3:py),"N = "+n+" per group",rows);
+ }
+ hit.addEventListener("pointermove",ev=>{const r=svg.getBoundingClientRect();const sx=W/r.width;const px=(ev.clientX-r.left)*sx-M.l;
+  let b=0,bd=1e9;sizes.forEach((n,i)=>{const d=Math.abs(X(n)-px);if(d<bd){bd=d;b=i;}});focusIdx=b;at(b,px,(ev.clientY-r.top)*sx);});
+ hit.addEventListener("pointerleave",()=>{cross.setAttribute("visibility","hidden");hideTip();});
+ svg.addEventListener("keydown",ev=>{ if(ev.key==="ArrowRight"||ev.key==="ArrowLeft"){ev.preventDefault();
+   focusIdx=focusIdx==null?0:Math.max(0,Math.min(sizes.length-1,focusIdx+(ev.key==="ArrowRight"?1:-1)));at(focusIdx,null,null);} });
+ svg.addEventListener("blur",()=>{cross.setAttribute("visibility","hidden");hideTip();});
+ // table
+ const tb=hh("table"),th=hh("thead"),trh=hh("tr");
+ ["N per group","Fast engine: median (IQR)","PyDESeq2: median (range, cohorts)","Published"].forEach(x=>trh.appendChild(hh("th",{},x)));
+ th.appendChild(trh);tb.appendChild(th);const bd=hh("tbody");
+ sizes.forEach((n,i)=>{const tr=hh("tr");tr.appendChild(hh("td",{},String(n)));
+  const a=fastVals(n),p=anchorVals(n,"pydeseq2"),b=pubVal(n);
+  tr.appendChild(hh("td",{},a?f2(a.mid)+" ("+f2(a.lo)+"–"+f2(a.hi)+")":"–"));
+  tr.appendChild(hh("td",{},p?f2(p.mid)+" ("+f2(p.min)+"–"+f2(p.max)+", "+p.k+")":"–"));
+  tr.appendChild(hh("td",{},b!=null?f2(b):"–"));bd.appendChild(tr);});
+ tb.appendChild(bd);$("#tbl1").replaceChildren(tb);
+}
+
+/* ---------- chart 2 ---------- */
+function renderChart2(){
+ const host=$("#chart2");host.replaceChildren();
+ const n=sizes[S.idx];$("#nVal").textContent="N = "+n;
+ const G=D.genes,rec=G.rec[String(n)];
+ const W=Math.max(300,host.clientWidth||700),H=W<520?300:360,M={l:50,r:20,t:12,b:46},iw=W-M.l-M.r,ih=H-M.t-M.b;
+ const svg=el("svg",{viewBox:`0 0 ${W} ${H}`,role:"img","aria-label":"Detection frequency of reference genes at N = "+n},host);
+ const g=el("g",{transform:`translate(${M.l},${M.t})`},svg);
+ const lim=Math.ceil(Math.max(...G.lfc.map(Math.abs))/2)*2;
+ const X=v=>(v+lim)/(2*lim)*iw,Y=v=>ih-v/100*ih;
+ for(let v=0;v<=100;v+=25){el("line",{x1:0,x2:iw,y1:Y(v),y2:Y(v),stroke:v?"var(--grid)":"var(--axis)"},g);const t=el("text",{x:-8,y:Y(v)+4,"text-anchor":"end"},g);t.textContent=v+" %";}
+ for(let v=-lim;v<=lim;v+=2){const t=el("text",{x:X(v),y:ih+18,"text-anchor":"middle"},g);t.textContent=v;}
+ el("line",{x1:X(0),x2:X(0),y1:0,y2:ih,stroke:"var(--grid)"},g);
+ let t=el("text",{x:iw/2,y:ih+38,"text-anchor":"middle",class:"axis-title"},g);t.textContent="Full-data log2 fold change (log2 units, LumA vs Basal)";
+ t=el("text",{transform:`translate(-38,${ih/2}) rotate(-90)`,"text-anchor":"middle",class:"axis-title"},g);t.textContent="Cohorts that call the gene (% of 100)";
+ const pts=G.lfc.map((v,i)=>({x:X(v),y:Y(rec[i]),i}));
+ pts.forEach(p=>el("circle",{cx:p.x,cy:p.y,r:3,fill:COL.fast,"fill-opacity":.45},g));
+ const ring=el("circle",{r:5.5,fill:"none",stroke:"var(--text-primary)","stroke-width":2,visibility:"hidden"},g);
+ const hit=el("rect",{x:0,y:0,width:iw,height:ih,fill:"transparent"},g);
+ hit.addEventListener("pointermove",ev=>{const r=svg.getBoundingClientRect(),sx=W/r.width;
+  const px=(ev.clientX-r.left)*sx-M.l,py=(ev.clientY-r.top)*sx-M.t;let b=null,bd=24*24;
+  for(const p of pts){const d=(p.x-px)**2+(p.y-py)**2;if(d<bd){bd=d;b=p;}}
+  if(!b){ring.setAttribute("visibility","hidden");hideTip();return;}
+  ring.setAttribute("cx",b.x);ring.setAttribute("cy",b.y);ring.setAttribute("visibility","visible");
+  placeTip(host,M.l+b.x,M.t+b.y,G.sym[b.i]+(G.sym[b.i]!==G.id[b.i]?" ("+G.id[b.i]+")":""),[{color:COL.fast,value:rec[b.i]+" %",label:"of cohorts call it"},{color:"var(--text-muted)",value:G.lfc[b.i].toFixed(2),label:"full-data log2FC"},{color:"var(--text-muted)",value:G.auth[b.i]?"yes":"no",label:"also in authors' list"}]);});
+ hit.addEventListener("pointerleave",()=>{ring.setAttribute("visibility","hidden");hideTip();});
+ const tot=rec.length,any=rec.filter(v=>v>0).length,half=rec.filter(v=>v>=50).length;
+ $("#c2ref").textContent=fi(tot);
+ $("#c2n").textContent="At N = "+n+", "+fi(any)+" of the "+fi(tot)+" reference genes ("+fpct(any/tot*100)+") were called by at least one of the 100 cohorts, and "+fi(half)+" ("+fpct(half/tot*100)+") by at least half of them.";
+}
+
+/* ---------- chart 3 ---------- */
+function renderChart3(){
+ const host=$("#chart3");host.replaceChildren();
+ const k="rep"+S.pubN;const rows=D.published.slice().sort((a,b)=>b[k]-a[k]);
+ const W=Math.max(300,host.clientWidth||700),rh=24,M={l:56,r:48,t:6,b:34},H=rows.length*rh+M.t+M.b,iw=W-M.l-M.r;
+ const svg=el("svg",{viewBox:`0 0 ${W} ${H}`,role:"img","aria-label":"Published replicability at N = "+S.pubN+" for 18 data sets"},host);
+ const g=el("g",{transform:`translate(${M.l},${M.t})`},svg);
+ const X=v=>v*iw;
+ for(let v=0;v<=1.0001;v+=.25){el("line",{x1:X(v),x2:X(v),y1:0,y2:rows.length*rh,stroke:v?"var(--grid)":"var(--axis)"},g);const t=el("text",{x:X(v),y:rows.length*rh+16,"text-anchor":"middle"},g);t.textContent=v.toFixed(2);}
+ const mine=[];
+ const fv=fastValsAtPrimary(+S.pubN),pv=anchorAtPrimary(+S.pubN);
+ rows.forEach((r,i)=>{const y=i*rh+rh/2,isB=r.code==="BSLA";
+  const t=el("text",{x:-8,y:y+4,"text-anchor":"end"},g);t.textContent=r.code;if(isB)t.setAttribute("style","font-weight:700;fill:var(--text-primary)");
+  const bar=el("path",{d:`M0 ${y-7}H${Math.max(0,X(r[k])-4)}a4 4 0 0 1 4 4V${y+3}a4 4 0 0 1 -4 4H0Z`,fill:COL.pub,"fill-opacity":isB?1:.55},g);
+  bar.setAttribute("tabindex","0");
+  const vt=el("text",{x:iw+8,y:y+4},g);vt.textContent=f2(r[k]);
+  const show=(ev)=>{const rr=svg.getBoundingClientRect(),sx=W/rr.width;placeTip(host,M.l+X(r[k]),M.t+y,r.code,[{color:COL.pub,shape:"di",value:f2(r[k]),label:"published, N = "+S.pubN}]);};
+  bar.addEventListener("pointermove",show);bar.addEventListener("focus",show);bar.addEventListener("pointerleave",hideTip);bar.addEventListener("blur",hideTip);
+  if(isB){
+   if(fv!=null){el("circle",{cx:X(fv),cy:y,r:5,fill:COL.fast,stroke:"var(--surface-1)","stroke-width":2},g);}
+   if(pv!=null){el("rect",{x:X(pv)-4.5,y:y-4.5,width:9,height:9,fill:COL.py,stroke:"var(--surface-1)","stroke-width":2},g);}
+   const lab=[];if(fv!=null)lab.push("fast "+f2(fv));if(pv!=null)lab.push("PyDESeq2 "+f2(pv));
+   if(lab.length){const tt=el("text",{x:iw+M.r-4,y:y+4,"text-anchor":"end"},g);tt.textContent="";}
+   const note=$("#c3note");if(note)note.textContent="This reproduction at N = "+S.pubN+": "+(lab.length?lab.join(", "):"no estimate")+" (published "+f2(r[k])+").";
+  }});
+ const tb=hh("table"),th=hh("thead"),trh=hh("tr");["Data set","Replicability N = 5","Replicability N = 10"].forEach(x=>trh.appendChild(hh("th",{},x)));th.appendChild(trh);tb.appendChild(th);
+ const bd=hh("tbody");D.published.slice().sort((a,b)=>b.rep10-a.rep10).forEach(r=>{const tr=hh("tr");[r.code,f2(r.rep5),f2(r.rep10)].forEach(x=>tr.appendChild(hh("td",{},x)));bd.appendChild(tr);});tb.appendChild(bd);$("#tbl3").replaceChildren(tb);
+}
+function fastValsAtPrimary(n){const e=(D.fast[pk(PRIM[0],PRIM[1])]||{})[n];return e?e.rep[2]:null;}
+function anchorAtPrimary(n){const A=D.anchor[n];return A&&A.pydeseq2?med(A.pydeseq2.rep):null;}
+
+
+/* ---------- shared box / violin / dots renderer ---------- */
+function mulberry(a){return function(){a|=0;a=a+0x6D2B79F5|0;let t=Math.imul(a^a>>>15,1|a);t=t+Math.imul(t^t>>>7,61|t)^t;return((t^t>>>14)>>>0)/4294967296;};}
+function niceTicks(lo,hi,n){if(hi<=lo)hi=lo+1;const span=hi-lo,raw=span/n,p=Math.pow(10,Math.floor(Math.log10(raw))),m=raw/p,st=(m<=1?1:m<=2?2:m<=5?5:10)*p;const a=Math.floor(lo/st)*st,t=[];for(let v=a;v<=hi+st*0.5;v+=st)t.push(+v.toFixed(10));return t;}
+const fmtTick=v=>Math.abs(v)>=1000?(v/1000)+"K":(Math.abs(v)<1&&v!==0?String(+v.toFixed(2)):String(+v.toFixed(2)));
+function distChart(host,groups,o){
+ host.replaceChildren();
+ const W=Math.max(300,host.clientWidth||700),H=o.h||(W<520?300:360),M={l:54,r:14,t:10,b:44},iw=W-M.l-M.r,ih=H-M.t-M.b;
+ const svg=el("svg",{viewBox:`0 0 ${W} ${H}`,role:"img","aria-label":o.aria},host);
+ const g=el("g",{transform:`translate(${M.l},${M.t})`},svg);
+ let lo=Infinity,hi=-Infinity;
+ groups.forEach(q=>{q.dots.forEach(v=>{if(v<lo)lo=v;if(v>hi)hi=v;});q.box.forEach(v=>{if(v<lo)lo=v;if(v>hi)hi=v;});(q.dens||[]).forEach(d=>{if(d[0]<lo)lo=d[0];if(d[0]>hi)hi=d[0];});});
+ if(o.ymin!=null)lo=Math.min(lo,o.ymin); if(o.ymax!=null)hi=Math.max(hi,o.ymax);
+ const pad=(hi-lo)*0.04||0.5; if(o.ymin!=null)lo=o.ymin; else lo-=pad; if(o.ymax!=null)hi=o.ymax; else hi+=pad;
+ const ticks=niceTicks(lo,hi,5).filter(v=>v>=lo-1e-9&&v<=hi+1e-9);
+ const Y=v=>ih-(v-lo)/(hi-lo)*ih,bw=iw/groups.length,cx=i=>bw*(i+0.5),hw=Math.min(bw*0.34,60);
+ ticks.forEach(v=>{el("line",{x1:0,x2:iw,y1:Y(v),y2:Y(v),stroke:"var(--grid)"},g);const t=el("text",{x:-8,y:Y(v)+4,"text-anchor":"end"},g);t.textContent=fmtTick(v);});
+ el("line",{x1:0,x2:iw,y1:ih,y2:ih,stroke:"var(--axis)"},g);
+ const pts=[];
+ groups.forEach((q,i)=>{
+  const x=cx(i),col=q.color,t=el("text",{x:x,y:ih+18,"text-anchor":"middle"},g);t.textContent=q.label;
+  if(o.style==="violin"){
+   if(q.dens){const up=q.dens.map(d=>`${x+hw*d[1]},${Y(d[0])}`),dn=q.dens.slice().reverse().map(d=>`${x-hw*d[1]},${Y(d[0])}`);
+    el("path",{d:"M"+up.concat(dn).join("L")+"Z",fill:col,"fill-opacity":.33,stroke:col,"stroke-width":1.4,"stroke-linejoin":"round"},g);}
+   else el("line",{x1:x-hw*0.6,x2:x+hw*0.6,y1:Y(q.box[2]),y2:Y(q.box[2]),stroke:col,"stroke-width":2},g);
+   el("line",{x1:x,x2:x,y1:Y(q.box[1]),y2:Y(q.box[3]),stroke:"var(--text-primary)","stroke-width":4,"stroke-linecap":"round"},g);
+   el("circle",{cx:x,cy:Y(q.box[2]),r:4,fill:"var(--surface-1)",stroke:"var(--text-primary)","stroke-width":1.5},g);
+  } else {
+   const b=q.box;
+   el("line",{x1:x,x2:x,y1:Y(b[0]),y2:Y(b[4]),stroke:"var(--axis)","stroke-width":1.5},g);
+   [b[0],b[4]].forEach(v=>el("line",{x1:x-hw*0.35,x2:x+hw*0.35,y1:Y(v),y2:Y(v),stroke:"var(--axis)","stroke-width":1.5},g));
+   el("rect",{x:x-hw*0.7,y:Y(b[3]),width:hw*1.4,height:Math.max(1,Y(b[1])-Y(b[3])),fill:col,"fill-opacity":.2,stroke:"var(--axis)"},g);
+   el("line",{x1:x-hw*0.7,x2:x+hw*0.7,y1:Y(b[2]),y2:Y(b[2]),stroke:"var(--text-primary)","stroke-width":2.2},g);
+   const rnd=mulberry(1000+i*77+q.dots.length);
+   q.dots.forEach(v=>{const px=x+(rnd()-0.5)*hw*1.3;el("circle",{cx:px,cy:Y(v),r:o.dot||2.8,fill:col,"fill-opacity":.5},g);pts.push({x:px,y:Y(v),v:v,i:i});});
+  }
+ });
+ groups.forEach((q,i)=>{(q.over||[]).forEach((v,k)=>{const px=cx(i)+hw*0.95+((k%3)-1)*4;el("rect",{x:px-3.5,y:Y(v)-3.5,width:7,height:7,fill:COL.py,stroke:"var(--surface-1)","stroke-width":1},g);});});
+ const hl=el("circle",{r:5,fill:"none",stroke:"var(--text-primary)","stroke-width":2,visibility:"hidden"},g);
+ const hit=el("rect",{x:0,y:0,width:iw,height:ih,fill:"transparent"},g);
+ const sum=(q,i)=>[{color:q.color,value:fmtTick(+q.box[2].toFixed(3)),label:"median"},{color:"var(--text-muted)",value:fmtTick(+q.box[1].toFixed(3))+" to "+fmtTick(+q.box[3].toFixed(3)),label:"quartiles"},{color:"var(--text-muted)",value:fmtTick(+q.box[0].toFixed(3))+" to "+fmtTick(+q.box[4].toFixed(3)),label:"whiskers"}].concat(q.n?[{color:"var(--text-muted)",value:String(q.n),label:o.nlabel||"values"}]:[]).concat(q.over&&q.over.length?[{color:COL.py,shape:"sq",value:fmtTick(+med(q.over).toFixed(3)),label:"PyDESeq2 median ("+q.over.length+")"}]:[]);
+ function move(px,py){
+  const i=Math.max(0,Math.min(groups.length-1,Math.floor(px/bw)));let b=null,bd=14*14;
+  if(o.style!=="violin")for(const p of pts){const d=(p.x-px)**2+(p.y-py)**2;if(d<bd){bd=d;b=p;}}
+  if(b){hl.setAttribute("cx",b.x);hl.setAttribute("cy",b.y);hl.setAttribute("visibility","visible");
+   placeTip(host,M.l+b.x,M.t+b.y,groups[b.i].label+(o.xlabel||""),[{color:groups[b.i].color,value:fmtTick(+b.v.toFixed(3)),label:o.dotlabel||"value"}]);}
+  else{hl.setAttribute("visibility","hidden");placeTip(host,M.l+cx(i),M.t+py,groups[i].label+(o.xlabel||""),sum(groups[i],i));}
+ }
+ hit.addEventListener("pointermove",ev=>{const r=svg.getBoundingClientRect(),sx=W/r.width;move((ev.clientX-r.left)*sx-M.l,(ev.clientY-r.top)*sx-M.t);});
+ hit.addEventListener("pointerleave",()=>{hl.setAttribute("visibility","hidden");hideTip();});
+ let t2=el("text",{x:iw/2,y:ih+36,"text-anchor":"middle",class:"axis-title"},g);t2.textContent=o.xtitle||"";
+ t2=el("text",{transform:`translate(-42,${ih/2}) rotate(-90)`,"text-anchor":"middle",class:"axis-title"},g);t2.textContent=o.ytitle||"";
+}
+function boxTable(host,groups,xhead){
+ const tb=hh("table"),th=hh("thead"),tr=hh("tr");[xhead,"Lower whisker","Q1","Median","Q3","Upper whisker"].forEach(x=>tr.appendChild(hh("th",{},x)));th.appendChild(tr);tb.appendChild(th);
+ const bd=hh("tbody");groups.forEach(q=>{const r=hh("tr");r.appendChild(hh("td",{},q.label));[q.box[0],q.box[1],q.box[2],q.box[3],q.box[4]].forEach(v=>r.appendChild(hh("td",{},String(+v.toFixed(3)))));bd.appendChild(r);});
+ tb.appendChild(bd);host.replaceChildren(tb);
+}
+const DM={rep:{y:"Jaccard overlap (0 to 1)",min:0,max:1,n:"cohort pairs",k:"rep"},precision:{y:"Precision (fraction, 0 to 1)",min:0,max:1.02,n:"cohorts with calls",k:"precision"},recall:{y:"Recall (fraction, 0 to 1)",min:0,max:null,n:"cohorts",k:"recall"},n_deg:{y:"Genes called (count)",min:0,max:null,n:"cohorts",k:"n_deg"}};
+const dS={metric:"rep",style:"box",min10:false,over:true};
+function renderDist(){
+ const m=DM[dS.metric],key=(dS.metric==="rep"&&dS.min10)?"rep10":dS.metric,src=D.dist[key],ov=D.over[key]||{};
+ const gr=sizes.filter(n=>src[String(n)]).map(n=>Object.assign({label:String(n),color:COL.fast,over:dS.over?(ov[String(n)]||[]):[]},src[String(n)]));
+ distChart($("#chartD"),gr,{style:dS.style,ymin:m.min,ymax:m.max,ytitle:m.y,xtitle:"Cohort size (samples per subtype)",xlabel:" per group",aria:m.y+" by cohort size",nlabel:m.n,dotlabel:dS.metric==="rep"?"overlap of one pair":"one cohort",dot:2.6});
+ boxTable($("#tblD"),gr,"N per group");
+ $("#dMin10Wrap").style.display=dS.metric==="rep"?"":"none";
+ $("#dNote").textContent=(dS.metric==="rep"&&dS.min10?"Only pairs where both cohorts call at least 10 genes are kept (n shown in the tooltip); this removes the near-empty lists that give an overlap of 0 or 1 by chance and leaves sizes where few cohorts qualify out of the plot. ":"")+(dS.metric==="precision"?"Precision is undefined for cohorts that call no genes, so those are left out; at N = 3 that is most of them.":(dS.metric==="rep"&&dS.style==="violin"?"Pairs where both cohorts call very few genes can reach an overlap of 1 by chance, which stretches the violins at the smallest sizes.":""));
+}
+
+/* ---------- sample map ---------- */
+const eS={proj:"umap",color:"cond",N:0,trial:0};
+function ramp(t){const dark=document.documentElement.getAttribute("data-theme")==="dark"||(!document.documentElement.getAttribute("data-theme")&&matchMedia("(prefers-color-scheme: dark)").matches);
+ const L=["#86b6ef","#5598e7","#2a78d6","#1c5cab","#0d366b"],Dk=["#184f95","#256abf","#3987e5","#86b6ef","#cde2fb"];const R=dark?Dk:L;
+ const x=Math.max(0,Math.min(1,t))*(R.length-1),i=Math.min(R.length-2,Math.floor(x)),f=x-i;const a=R[i],b=R[i+1];
+ const c=h=>[1,3,5].map(k=>parseInt(h.substr(k,2),16));const A=c(a),B=c(b);return "rgb("+A.map((v,k)=>Math.round(v+(B[k]-v)*f)).join(",")+")";}
+function renderMap(){
+ const E=D.emb,P=E[eS.proj],host=$("#chartE");host.replaceChildren();
+ const W=Math.max(300,host.clientWidth||700),H=W<520?340:430,M={l:50,r:W<520?14:70,t:10,b:44},iw=W-M.l-M.r,ih=H-M.t-M.b;
+ const svg=el("svg",{viewBox:`0 0 ${W} ${H}`,role:"img","aria-label":"Sample map of 252 tumours"},host);const g=el("g",{transform:`translate(${M.l},${M.t})`},svg);
+ const xs=P.map(p=>p[0]),ys=P.map(p=>p[1]);const x0=Math.min(...xs),x1=Math.max(...xs),y0=Math.min(...ys),y1=Math.max(...ys);
+ const px=(x1-x0)*0.05,py=(y1-y0)*0.05;const X=v=>(v-x0+px)/(x1-x0+2*px)*iw,Y=v=>ih-(v-y0+py)/(y1-y0+2*py)*ih;
+ niceTicks(x0-px,x1+px,6).filter(v=>v>=x0-px&&v<=x1+px).forEach(v=>{const t=el("text",{x:X(v),y:ih+16,"text-anchor":"middle"},g);t.textContent=fmtTick(v);});
+ niceTicks(y0-py,y1+py,5).filter(v=>v>=y0-py&&v<=y1+py).forEach(v=>{el("line",{x1:0,x2:iw,y1:Y(v),y2:Y(v),stroke:"var(--grid)"},g);const t=el("text",{x:-8,y:Y(v)+4,"text-anchor":"end"},g);t.textContent=fmtTick(v);});
+ el("line",{x1:0,x2:iw,y1:ih,y2:ih,stroke:"var(--axis)"},g);
+ const lab={pca:["PC1 score (standardised log2 CPM units; "+Math.round(E.pc_var[0]*100)+" % of variance)","PC2 score (standardised log2 CPM units; "+Math.round(E.pc_var[1]*100)+" %)"],tsne:["t-SNE 1 (arbitrary units)","t-SNE 2 (arbitrary units)"],umap:["UMAP 1 (arbitrary units)","UMAP 2 (arbitrary units)"]}[eS.proj];
+ let t=el("text",{x:iw/2,y:ih+36,"text-anchor":"middle",class:"axis-title"},g);t.textContent=lab[0];
+ t=el("text",{transform:`translate(-38,${ih/2}) rotate(-90)`,"text-anchor":"middle",class:"axis-title"},g);t.textContent=lab[1];
+ const vals=eS.color==="purity"?E.purity:E.age_years;const vmin=vals?Math.min(...vals):0,vmax=vals?Math.max(...vals):1;
+ const colorOf=i=>eS.color==="cond"?(E.cond[i]?COL.py:COL.fast):ramp((vals[i]-vmin)/(vmax-vmin||1));
+ const sel=eS.N?new Set(D.emb.cohorts[String(eS.N)][String(eS.trial)]):null;
+ const order=E.sample.map((_,i)=>i).sort((a,b)=>(sel&&sel.has(a))-(sel&&sel.has(b)));
+ order.forEach(i=>{const inS=sel&&sel.has(i);
+  el("circle",{cx:X(P[i][0]),cy:Y(P[i][1]),r:inS?6:4.2,fill:colorOf(i),"fill-opacity":sel&&!inS?.3:.88,stroke:inS?"var(--text-primary)":"var(--surface-1)","stroke-width":inS?2:.8},g);});
+ const hl=el("circle",{r:8,fill:"none",stroke:"var(--text-primary)","stroke-width":2,visibility:"hidden"},g);
+ const hit=el("rect",{x:0,y:0,width:iw,height:ih,fill:"transparent"},g);
+ hit.addEventListener("pointermove",ev=>{const r=svg.getBoundingClientRect(),sx=W/r.width,qx=(ev.clientX-r.left)*sx-M.l,qy=(ev.clientY-r.top)*sx-M.t;
+  let b=-1,bd=24*24;for(let i=0;i<P.length;i++){const d=(X(P[i][0])-qx)**2+(Y(P[i][1])-qy)**2;if(d<bd){bd=d;b=i;}}
+  if(b<0){hl.setAttribute("visibility","hidden");hideTip();return;}
+  hl.setAttribute("cx",X(P[b][0]));hl.setAttribute("cy",Y(P[b][1]));hl.setAttribute("visibility","visible");
+  const rows=[{color:E.cond[b]?COL.py:COL.fast,value:E.groups[E.cond[b]],label:"subtype"},{color:"var(--text-muted)",value:E.purity[b].toFixed(2),label:"tumour purity"},{color:"var(--text-muted)",value:E.age_years[b].toFixed(0)+" y",label:"age"}];
+  if(sel)rows.push({color:"var(--text-muted)",value:sel.has(b)?"yes":"no",label:"in the overlaid cohort"});
+  placeTip(host,M.l+X(P[b][0]),M.t+Y(P[b][1]),E.sample[b],rows);});
+ hit.addEventListener("pointerleave",()=>{hl.setAttribute("visibility","hidden");hideTip();});
+ // legend / colour bar
+ const lg=$("#legendE");lg.replaceChildren();
+ if(eS.color==="cond"){E.groups.forEach((n,k)=>{const b=hh("span",{style:"display:inline-flex;align-items:center;gap:7px;font-size:13px"});const sv=el("svg",{viewBox:"0 0 12 12",style:"width:12px;height:12px"});el("circle",{cx:6,cy:6,r:5,fill:k?COL.py:COL.fast},sv);b.appendChild(sv);b.appendChild(document.createTextNode(n));lg.appendChild(b);});}
+ else{const wrap=hh("span",{style:"display:inline-flex;align-items:center;gap:8px;font-size:12.5px;color:var(--text-secondary)"});
+  wrap.appendChild(document.createTextNode((eS.color==="purity"?"Tumour purity (fraction) ":"Age (years) ")+vmin.toFixed(eS.color==="purity"?2:0)));
+  const bar=hh("span",{style:"display:inline-block;width:140px;height:10px;border-radius:5px;background:linear-gradient(90deg,"+[0,.25,.5,.75,1].map(q=>ramp(q)).join(",")+")"});wrap.appendChild(bar);wrap.appendChild(document.createTextNode(vmax.toFixed(eS.color==="purity"?2:0)));lg.appendChild(wrap);}
+ // note
+ const st=E.stats;let note="PC1 explains "+(st.pc1_var*100).toFixed(0)+" % of the variance and separates the two subtypes; PC1 correlates only weakly with tumour purity (r = "+st.pc1_purity_corr.toFixed(2)+").";
+ if(sel){const ids=[...sel],mp=ids.reduce((a,i)=>a+E.purity[i],0)/ids.length,ap=E.purity.reduce((a,v)=>a+v,0)/E.purity.length,mA=ids.reduce((a,i)=>a+E.age_years[i],0)/ids.length,aA=E.age_years.reduce((a,v)=>a+v,0)/E.age_years.length;
+  note="Cohort of "+eS.N+" + "+eS.N+" (draw "+eS.trial+"): mean purity "+mp.toFixed(2)+" vs "+ap.toFixed(2)+" in all samples, mean age "+mA.toFixed(0)+" vs "+aA.toFixed(0)+" years. A small cohort covers only a few corners of each subtype's spread.";}
+ $("#eNote").textContent=note;
+}
+
+/* ---------- single genes ---------- */
+const gS={gene:null,style:"box"};
+function renderGene(){
+ const G=D.gexpr,i=G.ids.indexOf(gS.gene),per=G.per[gS.gene];
+ const gr=G.groups.map((n,k)=>Object.assign({label:n,color:k?COL.py:COL.fast},per[k]));
+ distChart($("#chartG"),gr,{style:gS.style,ytitle:"Expression (log2 counts per million)",xtitle:G.sym[i]+": log2 fold change "+(G.lfc[i]>0?"+":"")+G.lfc[i].toFixed(1)+" (LumA vs Basal)",aria:"Expression of "+G.sym[i]+" by subtype",h:340,dot:3.2,dotlabel:"log2 CPM",nlabel:"tumours"});
+ boxTable($("#tblG"),gr,"Subtype");
+}
+
+/* ---------- text + controls ---------- */
+function renderText(){
+ const m=MET[S.metric];
+ $("#c1t").textContent=m.t+" by cohort size";
+ $("#c1s").textContent=m.s;
+ const prim=isPrim();
+ let note="";
+ if(!prim) note="PyDESeq2 and published points exist for the primary setting only (|log2FC| > 1, 5 % FDR), so they are hidden here.";
+ else if(S.metric==="spearman") note="PyDESeq2 points are not shown for this measure.";
+ else if(S.metric==="precision"||S.metric==="recall") note="Reference: "+(S.ref==="authors"?"the authors' full-data DESeq2 result ("+fi(D.meta.n_ref_authors)+" genes).":"this repository's engine on all samples ("+fi(D.meta.n_ref_own)+" genes).")+" Cohorts that call no genes are left out of precision.";
+ $("#c1n").textContent=note;
+ // hero
+ const A10=D.anchor[10],fa=D.fast[pk(PRIM[0],PRIM[1])];
+ let v=null,src="";
+ if(A10&&A10.pydeseq2&&A10.pydeseq2.rep.length){v=med(A10.pydeseq2.rep);src="PyDESeq2, "+A10.k+" cohorts ("+A10.pydeseq2.rep.length+" pairs)";}
+ else if(fa&&fa[10]){v=fa[10].rep[2];src="fast engine, 100 cohorts";}
+ $("#heroNum").textContent=v==null?"–":f2(v);
+ $("#heroCap").textContent="Median overlap between the differentially expressed gene lists of two random 10-vs-10 cohorts (1 = identical lists). Published for this data set: "+(pubRow?f2(pubRow.rep10):"–")+". This reproduction: "+src+".";
+}
+function renderCompare(){
+ const box=$("#cmp");box.replaceChildren();
+ const rows=[["Precision","precision_authors","prec"],["Recall","recall_authors","rec"],["Replicability","rep","rep"]];
+ const tb=hh("table"),th=hh("thead"),tr=hh("tr");
+ ["Measure","Published N = 5","Reproduction N = 5","Published N = 10","Reproduction N = 10"].forEach(x=>tr.appendChild(hh("th",{},x)));th.appendChild(tr);tb.appendChild(th);
+ const bd=hh("tbody");
+ rows.forEach(([lab,ak,pk2])=>{const r=hh("tr");r.appendChild(hh("td",{},lab));
+  [5,10].forEach(n=>{const A=D.anchor[n];const pv=pubRow?pubRow[pk2+n]:null;
+   r.appendChild(hh("td",{},pv==null?"–":f2(pv)));
+   const arr=A&&A.pydeseq2?A.pydeseq2[ak].filter(x=>x!=null):[];
+   r.appendChild(hh("td",{},arr.length?f2(med(arr)):"–"));});
+  bd.appendChild(r);});
+ tb.appendChild(bd);box.appendChild(tb);
+}
+function renderValidation(){
+ const V=D.validation||{},box=$("#valTiles");box.replaceChildren();
+ const add=(v,k)=>{const t=hh("div",{class:"tile"});t.appendChild(hh("div",{class:"v"},v));t.appendChild(hh("div",{class:"k"},k));box.appendChild(t);};
+ if(V.full_vs_authors_deseq2){const f=V.full_vs_authors_deseq2;add(f.spearman_logfc.toFixed(2),"Spearman correlation of log2 fold changes with the authors' full-data DESeq2 ("+fi(f.genes)+" genes)");
+  add(fi(f.shared)+" / "+fi(f.deg_authors),"authors' DESeq2 genes also called by the fast engine on all samples ("+fi(f.deg_engine)+" called)");}
+ if(V.n5_vs_authors_edger){const f=V.n5_vs_authors_edger;add(f.deg_engine+" vs "+f.deg_edger,"genes called in the authors' own N = 5 cohort: fast engine vs their edgeR (correlation "+f.spearman_logfc.toFixed(2)+")");}
+ const ag=V.anchor_engine_agreement;
+ if(ag&&ag["5"]){const r=ag["5"];add(fi(r.fast_median)+" vs "+fi(r.pydeseq2_median),"median genes called at N = 5, fast engine vs PyDESeq2, on the same "+r.cohorts+" cohorts");}
+}
+function init(){
+ const L=$("#fLfc"),Fd=$("#fFdr");
+ D.meta.lfc_grid.forEach(v=>{const o=hh("option",{value:String(v)},v===0?"None (0)":"|log2FC| > "+v);if(v===PRIM[0])o.selected=true;L.appendChild(o);});
+ D.meta.fdr_grid.forEach(v=>{const o=hh("option",{value:String(v)},(v*100)+" %");if(v===PRIM[1])o.selected=true;Fd.appendChild(o);});
+ S.lfc=String(PRIM[0]);S.fdr=String(PRIM[1]);
+ $("#fMetric").addEventListener("change",e=>{S.metric=e.target.value;render();});
+ L.addEventListener("change",e=>{S.lfc=e.target.value;render();});
+ Fd.addEventListener("change",e=>{S.fdr=e.target.value;render();});
+ $("#fRef").addEventListener("click",e=>{const b=e.target.closest("button");if(!b||b.disabled)return;S.ref=b.dataset.v;render();});
+ $("#fPubN").addEventListener("click",e=>{const b=e.target.closest("button");if(!b)return;S.pubN=b.dataset.v;[...$("#fPubN").children].forEach(x=>x.setAttribute("aria-pressed",String(x===b)));renderChart3();});
+ const sl=$("#nSlide");sl.max=sizes.length-1;sl.value=sizes.indexOf(10);S.idx=sizes.indexOf(10);
+ sl.addEventListener("input",()=>{S.idx=+sl.value;renderChart2();});
+ $("#theme").addEventListener("click",()=>{const r=document.documentElement,cur=r.getAttribute("data-theme")||(matchMedia("(prefers-color-scheme: dark)").matches?"dark":"light");r.setAttribute("data-theme",cur==="dark"?"light":"dark");render();});
+ const n3=hh("p",{class:"note",id:"c3note"});$("#chart3").after(n3);
+ renderValidation();renderCompare();
+
+ // new panels
+ $("#dOver").addEventListener("change",e=>{dS.over=e.target.checked;renderDist();});$("#dMin10").addEventListener("change",e=>{dS.min10=e.target.checked;renderDist();});
+ $("#dMetric").addEventListener("change",e=>{dS.metric=e.target.value;renderDist();});
+ $("#dStyle").addEventListener("click",e=>{const b=e.target.closest("button");if(!b)return;dS.style=b.dataset.v;[...$("#dStyle").children].forEach(x=>x.setAttribute("aria-pressed",String(x===b)));renderDist();});
+ $("#eProj").addEventListener("click",e=>{const b=e.target.closest("button");if(!b)return;eS.proj=b.dataset.v;[...$("#eProj").children].forEach(x=>x.setAttribute("aria-pressed",String(x===b)));renderMap();});
+ $("#eColor").addEventListener("click",e=>{const b=e.target.closest("button");if(!b)return;eS.color=b.dataset.v;[...$("#eColor").children].forEach(x=>x.setAttribute("aria-pressed",String(x===b)));renderMap();});
+ const eN=$("#eN");sizes.forEach(n=>eN.appendChild(hh("option",{value:String(n)},"N = "+n+" per group")));
+ eN.addEventListener("change",e=>{eS.N=+e.target.value;renderMap();});
+ const et=$("#eTrial");$("#eTrialVal").textContent="#"+et.value;et.addEventListener("input",()=>{eS.trial=+et.value;$("#eTrialVal").textContent="#"+et.value;renderMap();});
+ const gSel=$("#gSel");D.gexpr.ids.forEach((id,k)=>gSel.appendChild(hh("option",{value:id},D.gexpr.sym[k]+"  (log2FC "+(D.gexpr.lfc[k]>0?"+":"")+D.gexpr.lfc[k].toFixed(1)+")")));gS.gene=D.gexpr.ids[0];
+ gSel.addEventListener("change",e=>{gS.gene=e.target.value;renderGene();});
+ $("#gStyle").addEventListener("click",e=>{const b=e.target.closest("button");if(!b)return;gS.style=b.dataset.v;[...$("#gStyle").children].forEach(x=>x.setAttribute("aria-pressed",String(x===b)));renderGene();});
+ let rt;new ResizeObserver(()=>{clearTimeout(rt);rt=setTimeout(()=>{renderChart1();renderChart2();renderChart3();renderDist();renderMap();renderGene();},80);}).observe($("#chart1"));
+ render();
+}
+function render(){
+ const prim=isPrim();
+ [...$("#fRef").children].forEach(b=>{b.setAttribute("aria-pressed",String(b.dataset.v===S.ref));if(b.dataset.v==="authors")b.disabled=!prim;});
+ if(!prim&&S.ref==="authors"){S.ref="own";[...$("#fRef").children].forEach(b=>b.setAttribute("aria-pressed",String(b.dataset.v==="own")));}
+ drawLegend();renderText();renderChart1();renderChart2();renderChart3();renderDist();renderMap();renderGene();
+}
+init();
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,11 @@
+{
+ "n_hvg": 2000,
+ "pc1_var": 0.2297,
+ "pc2_var": 0.0941,
+ "pc1_to_10_var": 0.4983,
+ "silhouette_pca2": 0.587,
+ "silhouette_tsne": 0.794,
+ "silhouette_umap": 0.803,
+ "pc1_purity_corr": 0.256,
+ "pc1_age_corr": -0.166
+}

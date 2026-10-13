@@ -1,0 +1,48 @@
+{
+ "full_vs_authors_deseq2": {
+  "genes": 18188,
+  "spearman_logfc": 0.965,
+  "deg_engine": 1852,
+  "deg_authors": 2039,
+  "shared": 1546,
+  "jaccard": 0.659
+ },
+ "n5_vs_authors_edger": {
+  "spearman_logfc": 0.966,
+  "deg_engine": 48,
+  "deg_edger": 340,
+  "shared": 48
+ },
+ "anchor_engine_agreement": {
+  "3": {
+   "cohorts": 10.0,
+   "fast_median": 1.0,
+   "pydeseq2_median": 423.0,
+   "frac_fast_in_pydeseq2": 1.0
+  },
+  "5": {
+   "cohorts": 10.0,
+   "fast_median": 23.0,
+   "pydeseq2_median": 365.0,
+   "frac_fast_in_pydeseq2": 1.0
+  },
+  "7": {
+   "cohorts": 10.0,
+   "fast_median": 109.5,
+   "pydeseq2_median": 519.0,
+   "frac_fast_in_pydeseq2": 1.0
+  },
+  "10": {
+   "cohorts": 10.0,
+   "fast_median": 174.0,
+   "pydeseq2_median": 465.0,
+   "frac_fast_in_pydeseq2": 0.987
+  },
+  "15": {
+   "cohorts": 10.0,
+   "fast_median": 443.0,
+   "pydeseq2_median": 777.5,
+   "frac_fast_in_pydeseq2": 0.947
+  }
+ }
+}
