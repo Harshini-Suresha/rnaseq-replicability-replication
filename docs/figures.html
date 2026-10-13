@@ -3,8 +3,8 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Figure gallery — RNA-seq Replicability (100 figures)</title>
-<meta name="description" content="Browsable gallery of 100 figures from the RNA-seq replicability reproduction, grouped by plot type and biology.">
+<title>Figure gallery — RNA-seq Replicability </title>
+<meta name="description" content="Browsable gallery from the RNA-seq replicability reproduction, grouped by plot type and biology.">
 <style>
 :root{color-scheme:light;--surface-1:#fcfcfb;--surface-2:#f4f3f0;--text-primary:#0b0b0b;--text-secondary:#52514e;--text-muted:#6b6a66;--grid:#e8e7e3;--axis:#cfcec9;--s1:#2a78d6;--s2:#eb6834;--s3:#1baf7a}
 :root[data-theme="dark"]{color-scheme:dark;--surface-1:#1a1a19;--surface-2:#232321;--text-primary:#f0efec;--text-secondary:#c3c2b7;--text-muted:#9b9a93;--grid:#2c2c2a;--axis:#3d3d3a;--s1:#3987e5;--s2:#d95926;--s3:#199e70}
@@ -48,8 +48,8 @@ footer{margin-top:40px;color:var(--text-muted);font-size:12.5px;border-top:1px s
 <body>
 <main>
 <div class="topbar"><div>
-<h1>Figure gallery — 100 figures</h1>
-<p class="lede">Every static figure from the reproduction, grouped two ways: by <strong>biology</strong> (overview, recurrence, distributions, single genes, sample map, thresholds) and by <strong>plot type</strong> (volcano, MA, heatmap, PCA / t-SNE / UMAP scatter, box + dots, violin, dot, bar, line, diagnostics, curves, histograms). Light background; use Theme for dark. Click any figure to enlarge.</p>
+<h1>Figure gallery</h1>
+<p class="lede">Every figure from the reproduction, grouped two ways: by <strong>biology</strong> (overview, recurrence, distributions, single genes, sample map, thresholds) and by <strong>plot type</strong> (volcano, MA, heatmap, PCA / t-SNE / UMAP scatter, box + dots, violin, dot, bar, line, diagnostics, curves, histograms). Light background; use Theme for dark. Click any figure to enlarge.</p>
 <a class="back" href="index.html">&larr; Back to interactive dashboard</a>
 </div><button id="theme" aria-label="Toggle colour theme">Theme</button></div>
 <div class="toolbar" role="group" aria-label="Gallery filters">
@@ -69,7 +69,7 @@ footer{margin-top:40px;color:var(--text-muted);font-size:12.5px;border-top:1px s
 <nav id="secnav" aria-label="Sections" style="display:flex;gap:8px;flex-wrap:wrap;margin:4px 0 6px;font-size:12.5px"></nav>
 <div id="sections"></div>
 <div class="empty" id="empty" hidden>No figures match. Clear search or filters.</div>
-<section class="prose" aria-labelledby="mqt"><h2 id="mqt">Methodology — how these 100 figures were made (in detail)</h2>
+<section class="prose" aria-labelledby="mqt"><h2 id="mqt">Methodology — how these figures were made (in detail)</h2>
 <p><strong>1. Question.</strong> When a differential-expression study has few replicates, how much would a repeat study of the same size find again (replicability), and how much of the full-data truth does one small study recover (precision/recall)? Design follows Degen &amp; Medo (2025): repeatedly draw small random cohorts from a large RNA-seq data set, run DE, and compare cohort-vs-cohort and cohort-vs-full-data.</p>
 <p><strong>2. Data provenance.</strong> TCGA breast cancer, Basal vs Luminal A, 126 + 126 tumours, 18,188 genes after <code>min_total_count: 10</code> filtering — the authors' <code>BSLA</code> set, taken from <code>pdegen/BootstrapSeq</code> (MIT), not re-downloaded. Files: <code>data/BSLA.csv</code> (genes × samples counts), <code>data/BSLA.meta.csv</code> (<code>Condition, TumorPurity, days_to_birth</code>), <code>data/upstream_BSLA.deseq2.lfc1.csv</code> (authors' full-data DESeq2: <code>logCPM, logFC, lfcSE, pvalue, FDR</code>), <code>data/published_degen_medo_2025_results.csv</code> (their 18-dataset table, row BSLA), <code>data/gene_annotation.csv</code> (16,879/18,188 symbols). All parameters in <code>config/config.yaml</code> (<code>seed: 20261012</code>).</p>
 <p><strong>3. Preprocessing (both engines).</strong> Size-factor normalisation → log2 CPM with prior 0.5 (as the DE engine) for embeddings; raw counts + covariates for modelling. Genes kept per-cohort if summed count ≥ 10.</p>
